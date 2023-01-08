@@ -1,4 +1,4 @@
-# DCP22
+# DCP223
 
 This assignment aims to design a chaincode in go programming language that initializes an NFT,
 assigns that NFT to a holder and allow to query to get the entities state as well the NFT’s owner and
