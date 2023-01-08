@@ -1,10 +1,5 @@
 package main
 
-//WARNING - this chaincode's ID is hard-coded in chaincode_example04 to illustrate one way of
-//calling chaincode from a chaincode. If this example is modified, chaincode_example04.go has
-//to be modified as well with the new ID of chaincode_example02.
-//chaincode_example05 show's how chaincode ID can be passed in as a parameter instead of
-//hard-coding.
 
 import (
 	"fmt"
@@ -15,51 +10,33 @@ import (
 )
 
 // SimpleChaincode example simple Chaincode implementation
-type RaquelChaincode struct {
+type SimpleChaincode struct {
 }
 
-// Asset struct and properties must be exported (start with capitals) to work with contract api metadata
-//type Asset struct {
-//	ObjectType        string `json:"objectType"` // ObjectType is used to distinguish different object types in the same chaincode namespace
-//	ID                string `json:"assetID"`
-//	OwnerOrg          string `json:"ownerOrg"`
-//	PublicDescription string `json:"publicDescription"`
-//}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func (t *RaquelChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
+func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("Init method gets called")
 	//_, args := stub.GetFunctionAndParameters()
-	var args [3]string
+	var args [4]string
 	args[0] = "a"          // Assign a value to the first element
 	args[1] = "1a2b3c4d5e" // Assign a value to the second element The NFT
 	args[2] = "b"          // Assign a value to the third element
-	//args1 := [3]string{"EntityA","1a2b3c4d5e","EntityB"}
-	var A, B string       // Entities
-	var Aval, Bval string // Asset holdings
+	args[3] = "12345abcde"          // Assign a value to the third element, The NFT
+	var A, B string    // Entities
+	var Aval, Bval string // Asset holdings, strings because the NFT is s 10 character alphanumeric string
 	var err error
 
-	if len(args) != 3 {
+	if len(args) != 4 {
 		return shim.Error("Incorrect number of arguments. Expecting 4")
 	}
 
 	// Initialize the chaincode
 	A = args[0]
 	Aval = strconv.Quote(args[1])
-	//if err != nil {
-	//	return shim.Error("Expecting integer value for asset holding")
-	//}
-	//B = args[2]
-
-	//Bval, err = strconv.Atoi(args[3])
-	Bval = strconv.Quote("")
-	//if err != nil {
-	//	return shim.Error("Expecting integer value for asset holding")
-	//}
+	B = args[2]
+	Bval = strconv.Quote(args[3])
 	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
 
-	// Write the state to the ledger Thats the mapping
+	// Write the state to the ledger
 	err = stub.PutState(A, []byte(strconv.QuoteToASCII(Aval)))
 	if err != nil {
 		return shim.Error(err.Error())
@@ -73,34 +50,26 @@ func (t *RaquelChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Success(nil)
 }
 
-func (t *RaquelChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("Invoke method gets called")
 	function, args := stub.GetFunctionAndParameters()
 	if function == "invoke" {
 		// Make payment of X units from A to B
 		return t.invoke(stub, args)
-		//} else if function == "delete" { //not necessary
-		//	// Deletes an entity from its state
-		//	return t.delete(stub, args)
 	} else if function == "query" {
-		// the old "Query" is now implemtned in invoke // When you call query, it give you the entity holdings
-		fmt.Printf("Query Response:%s\n", t.query(stub, args))
+		// the old "Query" is now implemtned in invoke
 		return t.query(stub, args)
 	}
-	//else if function == "NFThold" {
-	//	// the old "Query" is now implemtned in invoke
-	//	return t.holds(stub, args)
-	//}
 
 	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
 }
 
-// Transaction makes payment of X units from A to B
-func (t *RaquelChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+// Transaction makes transfer X NFT from A to B
+func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	fmt.Println("invoke method gets called")
-	var A, B string       // Entities
-	var Aval, Bval string // Asset holdings
-	//var X string          // Transaction value XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	var A, B string    // Entities
+	var Aval_aux, Bval_aux string // Assets
+	var X string          // Transaction value
 	var err error
 
 	if len(args) != 3 {
@@ -111,7 +80,6 @@ func (t *RaquelChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	B = args[1]
 
 	// Get the state from the ledger
-	// TODO: will be nice to have a GetAllState call to ledger
 	Avalbytes, err := stub.GetState(A)
 	if err != nil {
 		return shim.Error("Failed to get state")
@@ -119,7 +87,8 @@ func (t *RaquelChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	if Avalbytes == nil {
 		return shim.Error("Entity not found")
 	}
-	Aval, _ = (string(Avalbytes))
+	Aval_aux = (string(Avalbytes))
+
 
 	Bvalbytes, err := stub.GetState(B)
 	if err != nil {
@@ -128,25 +97,28 @@ func (t *RaquelChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	if Bvalbytes == nil {
 		return shim.Error("Entity not found")
 	}
-	Bval, _ = (string(Bvalbytes))
+	Bval_aux = (string(Bvalbytes))
 
-	// Perform the execution of transfer
-	//X, err = strconv.Atoi(args[2])
-	//if err != nil {
-	//	return shim.Error("Invalid transaction amount, expecting a integer value")
-	//}
-	//Aval = Aval - X
-	Aval = delete(string(Avalbytes), string(args[2]))
-	Bval = Bval + (string(args[2]))
-	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
+	// Perform the execution
+	X = strconv.Quote(args[2])
+
+	setA := (map[string]string{string(A):string(Aval_aux)})
+	setB := (map[string]string{string(B):(string(Bval_aux))})
+	if Bval_aux == "" {
+		setA[A] = ""
+		setB[B] = (string(X))
+	} else {
+		setA[A] = ""
+		setB[B] = (Bval_aux+string(X))
+	}
 
 	// Write the state back to the ledger
-	err = stub.PutState(A, []byte(strconv.Quote(Aval)))
+	err = stub.PutState(A, []byte(strconv.QuoteToASCII(setA[A])))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
-	err = stub.PutState(B, []byte(strconv.Quote(Bval)))
+	err = stub.PutState(B, []byte(strconv.QuoteToASCII(setB[B])))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -154,26 +126,9 @@ func (t *RaquelChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	return shim.Success(nil)
 }
 
-// Deletes an entity from state
-/*func (t *RaquelChaincode) delete(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	fmt.Println("delete method gets called")
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
-	}
-
-	A := args[0]
-
-	// Delete the key from the state in ledger
-	err := stub.DelState(A)
-	if err != nil {
-		return shim.Error("Failed to delete state")
-	}
-
-	return shim.Success(nil)
-}*/
 
 // query callback representing the query of a chaincode
-func (t *RaquelChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *SimpleChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	fmt.Println("query method gets called")
 	var A string // Entities
 	var err error
@@ -201,37 +156,8 @@ func (t *RaquelChaincode) query(stub shim.ChaincodeStubInterface, args []string)
 	return shim.Success(Avalbytes)
 }
 
-// Deletes an entity from state
-/*func (t *RaquelChaincode) queryNFTowner(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	fmt.Println("queryNFTowner method gets called")
-	var Aval string // Entities
-	var err error
-
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting name of the person to query")
-	}
-
-	Aval = args[0]
-
-	// Get the state from the ledger
-	Avalentitybytes, err := stub.GetQueryResult(Aval)
-	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get state for " + Aval + "\"}"
-		return shim.Error(jsonResp)
-	}
-
-	if Avalentitybytes == nil {
-		jsonResp := "{\"Error\":\"Nil amount for " + Aval + "\"}"
-		return shim.Error(jsonResp)
-	}
-
-	jsonResp := "{\"Name\":\"" + Aval + "\",\"Amount\":\"" + string(Avalentitybytes) + "\"}"
-	fmt.Printf("Query Response:%s\n", jsonResp)
-	return shim.Success(Avalentitybytes)
-}*/
-
 func main() {
-	err := shim.Start(new(RaquelChaincode))
+	err := shim.Start(new(SimpleChaincode))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}
